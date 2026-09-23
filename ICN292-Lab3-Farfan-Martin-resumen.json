@@ -1,0 +1,362 @@
+{
+  "name": "ICN292-Lab3-Farfan-Martin-resumen",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 19
+            }
+          ]
+        }
+      },
+      "id": "8654db5e-aae7-4102-96db-5ce366c2a29d",
+      "name": "Schedule Diario 19:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -432,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1-u0oLgpSm4DzWYJWA2KtU5PETuyFWcWriGSPzfYAVEM",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "registro",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "975108c8-ea3b-4b36-affb-481bb853e8cb",
+      "name": "Leer Registro",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -224,
+        -32
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "J6nOIVLx8E0Xo8be",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fb466bd2-5554-425a-9001-00d69d8bcfcf",
+              "leftValue": "={{ $json.fecha_proceso ? $json.fecha_proceso.toString().slice(0,10) : '' }}",
+              "rightValue": "={{ $now.toFormat('yyyy-MM-dd') }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "2bb1f91e-e069-446a-8ea2-f82560617ca1",
+      "name": "Filtrar Dia de Hoy",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        16,
+        -32
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8580a184-8255-4e93-9302-a60ad5e5abff",
+              "leftValue": "={{ $json.id_solicitud }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "a60122c4-366d-44b9-917a-10d572a21ef1",
+      "name": "Hubo Solicitudes",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        224,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "fieldsToSummarize": {
+          "values": [
+            {
+              "field": "id_solicitud"
+            },
+            {
+              "aggregation": "sum",
+              "field": "monto"
+            }
+          ]
+        },
+        "fieldsToSplitBy": "ruta",
+        "options": {}
+      },
+      "id": "ad817af7-c8ce-40e6-982d-01f57e85d975",
+      "name": "Summarize por Ruta",
+      "type": "n8n-nodes-base.summarize",
+      "typeVersion": 1.1,
+      "position": [
+        464,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "resumen",
+        "options": {}
+      },
+      "id": "7b48dbca-f878-42d2-8006-6f906dbb4bc5",
+      "name": "Consolidar Dia",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        688,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "440c90c6-e9cb-478e-9ab9-91fda6de1a9e",
+              "name": "asunto",
+              "value": "=Resumen diario de devoluciones {{ $now.toFormat('dd-LL-yyyy') }}",
+              "type": "string"
+            },
+            {
+              "id": "bdbc78ce-2e27-406f-8a53-8fa7193d2843",
+              "name": "cuerpo",
+              "value": "=RESUMEN DIARIO DE DEVOLUCIONES - AndesHogar SpA\nFecha: {{ $now.toFormat('dd-LL-yyyy') }} | S = 161 | U = $41000 | D = 14 dias\n\nSOLICITUDES Y MONTO POR RUTA\n{{ $json.resumen.map(r => r.ruta + ': ' + r.count_id_solicitud + ' solicitudes | $' + r.sum_monto).join('\\n') }}\n\nMonto total del dia: ${{ $json.resumen.reduce((a, r) => a + r.sum_monto, 0) }}\nSolicitudes totales: {{ $json.resumen.reduce((a, r) => a + r.count_id_solicitud, 0) }}\nTasa de aprobacion automatica: {{ (100 * ($json.resumen.filter(r => r.ruta === 'APROBACION').reduce((a, r) => a + r.count_id_solicitud, 0)) / $json.resumen.reduce((a, r) => a + r.count_id_solicitud, 0)).toFixed(1) }} %",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "769c710d-d449-4cee-8ebd-e3e0cadad0ec",
+      "name": "Componer Resumen",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        912,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "398f48a7-7eeb-4fcb-b7f2-31282b1bdabf",
+              "name": "asunto",
+              "value": "=Resumen diario de devoluciones {{ $now.toFormat('dd-LL-yyyy') }} - sin movimiento",
+              "type": "string"
+            },
+            {
+              "id": "06758b39-31f8-42d1-ba8e-655bd786e49e",
+              "name": "cuerpo",
+              "value": "=RESUMEN DIARIO DE DEVOLUCIONES - AndesHogar SpA\nFecha: {{ $now.toFormat('dd-LL-yyyy') }}\n\nNo se recibieron solicitudes de devolucion en el dia. El flujo se ejecuto correctamente.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9fc1c3e0-594b-43e3-9021-02380098310e",
+      "name": "Componer Aviso Sin Movimiento",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        912,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "servicio.cliente@andeshogar.cl",
+        "toEmail": "jefatura.servicio@andeshogar.cl",
+        "subject": "={{ $json.asunto }}",
+        "emailFormat": "text",
+        "text": "={{ $json.cuerpo }}",
+        "options": {}
+      },
+      "id": "5db51762-f4d4-44f8-bf8b-9c9ae3258fc8",
+      "name": "Enviar Resumen",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1152,
+        -32
+      ],
+      "webhookId": "ced2cbb1-e45d-4bc5-881c-c47cf401ae6c",
+      "credentials": {
+        "smtp": {
+          "id": "B5anVnkgKzLoOido",
+          "name": "SMTP account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Diario 19:00": {
+      "main": [
+        [
+          {
+            "node": "Leer Registro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Registro": {
+      "main": [
+        [
+          {
+            "node": "Filtrar Dia de Hoy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar Dia de Hoy": {
+      "main": [
+        [
+          {
+            "node": "Hubo Solicitudes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hubo Solicitudes": {
+      "main": [
+        [
+          {
+            "node": "Summarize por Ruta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Componer Aviso Sin Movimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize por Ruta": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Dia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidar Dia": {
+      "main": [
+        [
+          {
+            "node": "Componer Resumen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Componer Resumen": {
+      "main": [
+        [
+          {
+            "node": "Enviar Resumen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Componer Aviso Sin Movimiento": {
+      "main": [
+        [
+          {
+            "node": "Enviar Resumen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "FUEZAYaE2o7N7PCD",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "14b2ff04-8453-4d8d-a109-bcc181d15576",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "cbe6b57ccbb7c717ee30498f723badac7a57bdaf1dbc2577c5aa86efe069a376"
+  },
+  "nodeGroups": [],
+  "id": "oW9PbRUiqNsVC0UI",
+  "tags": []
+}
